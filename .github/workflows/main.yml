@@ -41,21 +41,49 @@ jobs:
         run: docker rm -f class_ci-cd || true
 
       - name: Run container
-        run: docker run -d -p 5000:5000 --name class_ci-cd ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest
+        run: docker run -d -p ${{ secrets.PORT_RUN_CONTAINER }} --name class_ci-cd ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest
 
+
+  notification:
+    needs: deploy
+    runs-on: self-hosted
+    if: success()
+    steps:
+      - name: Send Telegram message
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          format: markdown
+          message: |
+            🚀 *CI/CD deployed successfully!*
+
+            👤 Actor: ${{ github.actor }}
+            📦 Repo: ${{ github.repository }}
+            💬 Commit: ${{ github.event.head_commit.message || 'No commit message' }}
+
+            🔗 https://github.com/${{ github.repository }}/commit/${{ github.sha }}
 
 #  notification:
 #    needs: deploy
 #    runs-on: self-hosted
 #    steps:
-#      - name: Send Telegram message
-#        uses: appleboy/telegram-action@master
+#      - name: Send Email
+#       uses: dawidd6/action-send-mail@v3
 #        with:
-#          to: ${{ secrets.TELEGRAM_TO }}
-#          token: ${{ secrets.TELEGRAM_TOKEN }}
-#          message: |
-#            🚀 CI/CD deployed successfully!
+#          server_address: smtp.gmail.com
+#          server_port: 465
+#          username: ${{ secrets.EMAIL_USERNAME }}
+#          password: ${{ secrets.EMAIL_PASSWORD }}
+#          subject: 🚀 CI/CD Deploy Success
+#          to: your_email@gmail.com
+#          from: CI/CD Bot
+#          body: |
+#            Deploy successful!
+#
 #            Actor: ${{ github.actor }}
 #            Repo: ${{ github.repository }}
 #            Commit: ${{ github.event.commits[0].message }}
-#            Link: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+#
+#            Link:
+#            https://github.com/${{ github.repository }}/commit/${{ github.sha }}
