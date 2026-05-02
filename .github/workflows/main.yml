@@ -1,0 +1,61 @@
+name: CICD + NodeJs + Docker + Notification
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: echo "${{ secrets.PROD_ENV }}" > .env
+
+      - name: Login Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+      - name: Build image
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest .
+
+      - name: Push image
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest
+
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    environment: PROD
+    steps:
+      - name: Pull image
+        run: docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest
+
+      - name: Remove old container
+        run: docker rm -f class_ci-cd || true
+
+      - name: Run container
+        run: docker run -d -p 5000:5000 --name class_ci-cd ${{ secrets.DOCKER_HUB_USERNAME }}/class_ci-cd:latest
+
+
+#  notification:
+#    needs: deploy
+#    runs-on: self-hosted
+#    steps:
+#      - name: Send Telegram message
+#        uses: appleboy/telegram-action@master
+#        with:
+#          to: ${{ secrets.TELEGRAM_TO }}
+#          token: ${{ secrets.TELEGRAM_TOKEN }}
+#          message: |
+#            🚀 CI/CD deployed successfully!
+#            Actor: ${{ github.actor }}
+#            Repo: ${{ github.repository }}
+#            Commit: ${{ github.event.commits[0].message }}
+#            Link: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
